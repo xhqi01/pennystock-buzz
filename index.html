@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Penny Stock Radar</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,300&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #f7f6f3;
+  --white: #ffffff;
+  --border: #e0ddd8;
+  --border2: #ccc9c2;
+  --text: #1a1a1a;
+  --muted: #888880;
+  --muted2: #bbb8b0;
+  --green: #1a7a4a;
+  --red: #c0392b;
+  --tag-bg: #eeece8;
+  --penny: #b8860b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+header {
+  padding: 2.5rem 3rem 2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.logo { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.logo-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.logo-sub {
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.price-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--penny);
+  border: 1px solid var(--penny);
+  padding: 0.25rem 0.6rem;
+  opacity: 0.7;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: calc(100vh - 85px);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.subreddit-list { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.sub-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--white);
+  cursor: pointer;
+  transition: all 0.12s;
+  user-select: none;
+}
+
+.sub-item:hover { border-color: var(--border2); }
+
+.sub-item.selected {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.sub-check {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+}
+
+.sub-item.selected .sub-check {
+  background: var(--bg);
+  border-color: var(--bg);
+}
+
+.sub-check svg { display: none; }
+.sub-item.selected .sub-check svg { display: block; }
+
+.sub-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.sub-desc {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+
+.sub-item.selected .sub-desc { color: var(--muted2); }
+
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+
+input {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem;
+  padding: 0.6rem 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border2);
+  outline: none;
+  color: var(--text);
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+input:focus { border-bottom-color: var(--text); }
+input::placeholder { color: var(--muted2); }
+
+.api-hint {
+  font-size: 0.62rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.api-hint a { color: var(--muted); }
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle-label { font-size: 0.78rem; }
+
+.toggle { position: relative; width: 36px; height: 20px; }
+.toggle input { display: none; }
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border2);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle input:checked + .toggle-track { background: var(--text); }
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  pointer-events: none;
+}
+
+.toggle input:checked ~ .toggle-thumb { transform: translateX(16px); }
+
+.email-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.3s;
+  margin-top: 0;
+}
+
+.email-fields.open { max-height: 300px; opacity: 1; margin-top: 0.8rem; }
+
+.btn-run {
+  width: 100%;
+  padding: 0.8rem;
+  background: var(--text);
+  color: var(--bg);
+  border: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-top: auto;
+}
+
+.btn-run:hover { opacity: 0.8; }
+.btn-run:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* content */
+.content {
+  padding: 2rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--muted2);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.empty-state svg { opacity: 0.15; }
+
+.scan-status {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.2rem;
+  background: var(--white);
+  border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.scan-status.visible { display: flex; }
+.scan-status.error { color: var(--red); border-color: #f5c6c6; }
+
+.spinner {
+  width: 14px; height: 14px;
+  border: 1.5px solid var(--border2);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.verify-note {
+  display: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding: 0.6rem 1rem;
+  background: var(--tag-bg);
+  border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.verify-note.visible { display: block; }
+
+.results-header {
+  display: none;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.2rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.results-header.visible { display: flex; }
+
+.results-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.results-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+/* table */
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+thead tr { border-bottom: 1px solid var(--border2); }
+
+th {
+  text-align: left;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 400;
+  padding: 0.5rem 0.8rem;
+}
+
+td {
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tbody tr {
+  transition: background 0.1s;
+  animation: rowIn 0.25s ease both;
+}
+
+tbody tr:hover { background: rgba(0,0,0,0.02); }
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.td-ticker {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.td-mentions span {
+  background: var(--tag-bg);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.td-price {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--penny);
+  font-weight: 500;
+}
+
+.td-change {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+}
+
+.td-change.up { color: var(--green); }
+.td-change.down { color: var(--red); }
+
+.td-posts { max-width: 300px; }
+
+.post-link {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-decoration: none;
+  line-height: 1.4;
+  padding: 0.15rem 0;
+  transition: color 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.post-link:hover { color: var(--text); }
+
+.post-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--muted2);
+  margin-right: 0.3rem;
+}
+
+@media (max-width: 768px) {
+  header { padding: 1.5rem; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  .content { padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-title">penny stock radar</div>
+    <div class="logo-sub">reddit mentions · verified under $5</div>
+  </div>
+  <div class="price-badge">stocks &lt; $5 only</div>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+
+    <div>
+      <div class="section-label">Subreddits</div>
+      <div class="subreddit-list" id="sub-list"></div>
+    </div>
+
+    <div>
+      <div class="section-label">Reddit API</div>
+      <div class="field" style="margin-bottom:0.8rem">
+        <input type="text" id="reddit-id" placeholder="client_id">
+      </div>
+      <div class="field">
+        <input type="password" id="reddit-secret" placeholder="client_secret">
+      </div>
+      <div class="api-hint">
+        <a href="https://www.reddit.com/prefs/apps" target="_blank">reddit.com/prefs/apps</a> → create app → script
+      </div>
+    </div>
+
+    <div>
+      <div class="toggle-row">
+        <span class="toggle-label">Send email report</span>
+        <label class="toggle">
+          <input type="checkbox" id="email-toggle" onchange="toggleEmail()">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="email-fields" id="email-fields">
+        <div class="field">
+          <input type="email" id="email-sender" placeholder="your Gmail">
+        </div>
+        <div class="field">
+          <input type="password" id="email-pass" placeholder="App Password">
+        </div>
+        <div class="field">
+          <input type="email" id="email-recv" placeholder="send report to">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-run" id="run-btn" onclick="runScan()">Run Scan</button>
+
+  </aside>
+
+  <main class="content" id="content">
+
+    <div class="empty-state" id="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <span>select subreddits and run scan</span>
+      <span style="font-size:0.65rem;color:var(--muted2)">only stocks under $5 are shown</span>
+    </div>
+
+    <div class="scan-status" id="scan-status">
+      <div class="spinner"></div>
+      <span id="status-text">Scanning…</span>
+    </div>
+
+    <div class="verify-note" id="verify-note">
+      ↳ verifying tickers via Yahoo Finance — this may take a moment
+    </div>
+
+    <div class="results-header" id="results-header">
+      <div class="results-title">Penny stocks being discussed</div>
+      <div class="results-meta" id="results-meta"></div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="results-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Mentions</th>
+            <th>Price</th>
+            <th>1d Change</th>
+            <th>Posts</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const SUBREDDITS = [
+  { name: "pennystocks",            label: "r/pennystocks",            desc: "largest penny stock community" },
+  { name: "RobinhoodPennyStocks",   label: "r/RobinhoodPennyStocks",   desc: "Robinhood focused" },
+  { name: "pennystockDD",           label: "r/pennystockDD",           desc: "due diligence" },
+  { name: "OTCstocks",              label: "r/OTCstocks",              desc: "over-the-counter" },
+  { name: "smallstreetbets",        label: "r/smallstreetbets",        desc: "small cap speculation" },
+  { name: "Canadapennystocks",      label: "r/Canadapennystocks",      desc: "Canadian market" },
+];
+
+let selected = new Set(["pennystocks", "RobinhoodPennyStocks"]);
+
+function renderSubs() {
+  const list = document.getElementById("sub-list");
+  list.innerHTML = "";
+  SUBREDDITS.forEach(s => {
+    const item = document.createElement("div");
+    item.className = "sub-item" + (selected.has(s.name) ? " selected" : "");
+    item.innerHTML = `
+      <div class="sub-check">
+        <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="1.5,6 4.5,9 10.5,3"/>
+        </svg>
+      </div>
+      <div>
+        <div class="sub-name">${s.label}</div>
+        <div class="sub-desc">${s.desc}</div>
+      </div>
+    `;
+    item.onclick = () => {
+      if (selected.has(s.name)) {
+        if (selected.size > 1) selected.delete(s.name);
+      } else {
+        selected.add(s.name);
+      }
+      renderSubs();
+    };
+    list.appendChild(item);
+  });
+}
+
+renderSubs();
+
+function toggleEmail() {
+  const open = document.getElementById("email-toggle").checked;
+  document.getElementById("email-fields").classList.toggle("open", open);
+}
+
+async function runScan() {
+  const id     = document.getElementById("reddit-id").value.trim();
+  const secret = document.getElementById("reddit-secret").value.trim();
+  if (!id || !secret) return showError("Enter your Reddit API credentials.");
+
+  const sendMail = document.getElementById("email-toggle").checked;
+  const emailData = sendMail ? {
+    send_email:     true,
+    email_sender:   document.getElementById("email-sender").value.trim(),
+    email_password: document.getElementById("email-pass").value.trim(),
+    email_receiver: document.getElementById("email-recv").value.trim(),
+  } : { send_email: false };
+
+  document.getElementById("run-btn").disabled = true;
+  document.getElementById("empty-state").style.display = "none";
+  document.getElementById("results-header").classList.remove("visible");
+  document.getElementById("results-table").style.display = "none";
+  document.getElementById("results-body").innerHTML = "";
+
+  setStatus(`Scanning ${selected.size} subreddit${selected.size > 1 ? "s" : ""}…`);
+  document.getElementById("verify-note").classList.remove("visible");
+
+  setTimeout(() => {
+    document.getElementById("verify-note").classList.add("visible");
+  }, 3000);
+
+  try {
+    const res = await fetch("/api/scan", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reddit_id:     id,
+        reddit_secret: secret,
+        subreddits:    [...selected],
+        ...emailData,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.error) return showError(data.error);
+    renderResults(data.results, data.scanned);
+
+  } catch (e) {
+    showError("Failed to connect. Is the server running?");
+  } finally {
+    document.getElementById("run-btn").disabled = false;
+    document.getElementById("verify-note").classList.remove("visible");
+  }
+}
+
+function renderResults(results, scanned) {
+  document.getElementById("scan-status").className = "scan-status";
+
+  const header = document.getElementById("results-header");
+  header.classList.add("visible");
+
+  const subs = scanned.map(s => `r/${s}`).join(", ");
+  const now  = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("results-meta").textContent =
+    `${results.length} found · ${subs} · ${now}`;
+
+  const tbody = document.getElementById("results-body");
+  tbody.innerHTML = "";
+
+  if (!results.length) {
+    document.getElementById("results-table").style.display = "none";
+    const msg = document.createElement("div");
+    msg.style.cssText = "color:var(--muted2);font-size:0.78rem;font-family:monospace;padding:2rem 0";
+    msg.textContent = "No penny stocks found in these subreddits right now.";
+    document.getElementById("content").appendChild(msg);
+    return;
+  }
+
+  document.getElementById("results-table").style.display = "table";
+
+  results.forEach((r, i) => {
+    const chg    = r.change;
+    const chgStr = chg != null ? `${chg >= 0 ? "+" : ""}${chg}%` : "—";
+    const chgCls = chg != null ? (chg >= 0 ? "up" : "down") : "";
+
+    const postsHtml = (r.posts || []).map(p => `
+      <a class="post-link" href="${p.url}" target="_blank">
+        <span class="post-sub">r/${p.sub}</span>${truncate(p.title, 55)}
+      </a>`).join("");
+
+    const tr = document.createElement("tr");
+    tr.style.animationDelay = `${i * 50}ms`;
+    tr.innerHTML = `
+      <td class="td-ticker">${r.ticker}</td>
+      <td class="td-mentions"><span>${r.mentions}</span></td>
+      <td class="td-price">$${r.price}</td>
+      <td class="td-change ${chgCls}">${chgStr}</td>
+      <td class="td-posts">${postsHtml}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function setStatus(msg) {
+  const s = document.getElementById("scan-status");
+  s.className = "scan-status visible";
+  document.getElementById("status-text").textContent = msg;
+}
+
+function showError(msg) {
+  const s = document.getElementById("scan-status");
+  s.className = "scan-status visible error";
+  document.getElementById("status-text").textContent = msg;
+  document.getElementById("run-btn").disabled = false;
+}
+
+function truncate(str, n) {
+  return str.length > n ? str.slice(0, n) + "…" : str;
+}
+</script>
+</body>
+</html>
